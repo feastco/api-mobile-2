@@ -1,9 +1,9 @@
 <?php
 
 define('HOST', 'localhost');
-define('USER', 'root');
-define('PASSWORD', 'vasco123');
-define('DB', 'androiduts');
+define('USER', 'androidfisco');
+define('PASSWORD', 'Fisco123');
+define('DB', 'androidfisco');
 
 $conn = mysqli_connect(HOST, USER, PASSWORD, DB) or die('Unable to Connect');
 if (!$conn) {
