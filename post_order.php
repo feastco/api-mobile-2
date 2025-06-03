@@ -20,14 +20,26 @@ $message = "";
 mysqli_begin_transaction($conn);
 
 try {
-    // Hitung total dari semua item
+    // Hitung total dari semua item dan total berat
     $total = 0;
+    $totalWeight = 0;
     foreach ($items as $item) {
         $total += $item['subtotal'];
+
+        // Ambil weight dari database untuk produk ini
+        $kode = mysqli_real_escape_string($conn, $item['product']);
+        $weightQuery = "SELECT weight FROM tbl_product WHERE kode = '$kode'";
+        $weightResult = mysqli_query($conn, $weightQuery);
+
+        if ($weightResult && mysqli_num_rows($weightResult) > 0) {
+            $weightData = mysqli_fetch_assoc($weightResult);
+            $productWeight = $weightData['weight'];
+            $totalWeight += ($productWeight * $item['qty']);
+        }
     }
 
-    // Simpan data order baru ke tabel orders
-    $sql = "INSERT INTO orders (total) VALUES ($total)";
+    // Simpan data order baru ke tabel orders dengan total berat
+    $sql = "INSERT INTO orders (total, total_weight) VALUES ($total, $totalWeight)";
     if (!mysqli_query($conn, $sql)) {
         throw new Exception("Gagal membuat order: " . mysqli_error($conn));
     }
@@ -39,7 +51,7 @@ try {
         $inputKode = trim($item['product']);
 
         // Periksa apakah produk ada di database
-        $sql = "SELECT kode, merk, hargajual, stok FROM tbl_product WHERE kode = '" . mysqli_real_escape_string($conn, $inputKode) . "'";
+        $sql = "SELECT kode, merk, hargajual, stok, weight FROM tbl_product WHERE kode = '" . mysqli_real_escape_string($conn, $inputKode) . "'";
         $result = mysqli_query($conn, $sql);
 
         // Jika produk tidak ditemukan, batalkan transaksi
@@ -61,10 +73,11 @@ try {
         $harga = $item['harga'];
         $qty = $item['qty'];
         $subtotal = $item['subtotal'];
+        $itemWeight = $productData['weight'] * $qty; // Hitung berat per item pesanan
 
-        // Simpan item pesanan ke tabel order_items
-        $sql = "INSERT INTO order_items (order_id, kode, product, harga, qty, subtotal) 
-                VALUES ($orderId, '$exactKode', '$productName', $harga, $qty, $subtotal)";
+        // Simpan item pesanan ke tabel order_items dengan informasi berat
+        $sql = "INSERT INTO order_items (order_id, kode, product, harga, qty, subtotal, weight) 
+                VALUES ($orderId, '$exactKode', '$productName', $harga, $qty, $subtotal, $itemWeight)";
 
         if (!mysqli_query($conn, $sql)) {
             throw new Exception("Gagal menyimpan item pesanan: " . mysqli_error($conn));
@@ -91,4 +104,4 @@ try {
 }
 
 // Kirim respons ke client
-echo json_encode(array('result' => $getresult, 'message' => $message));
+echo json_encode(array('result' => $getresult, 'message' => $message, 'total_weight' => $totalWeight ?? 0));

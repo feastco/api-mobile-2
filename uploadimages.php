@@ -1,5 +1,5 @@
 <?php
-$BASE_URL_IMAGES = "/www/wwwroot/androidfisco/api-mobile-2/images/";
+$BASE_URL_IMAGES = "/var/www/webserver/images/";
 $filename = "img" . date("YmdHis") . rand(9, 999) . ".jpg";
 
 // Database connection

@@ -42,9 +42,10 @@ while ($data = mysqli_fetch_object($hasil)) {
     'hargajual' => $data->hargajual,
     'diskonjual' => $data->diskonjual,
     'stok' => $data->stok,
+    'weight' => $data->weight, // Add weight field to the response
     'foto' => $data->foto,
     'deskripsi' => $data->deskripsi,
-    'visit' => $data->visit, // Added field
+    'visit' => $data->visit,
   ]);
 }
 

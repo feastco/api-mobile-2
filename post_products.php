@@ -12,6 +12,7 @@ $hargapokok = mysqli_real_escape_string($conn, $_POST['hargapokok']);
 $hargajual = mysqli_real_escape_string($conn, $_POST['hargajual']);
 $diskonjual = mysqli_real_escape_string($conn, $_POST['diskonjual']);
 $stok = mysqli_real_escape_string($conn, $_POST['stok']);
+$weight = mysqli_real_escape_string($conn, $_POST['weight']); // Add weight field
 $foto = mysqli_real_escape_string($conn, $_POST['foto']);
 $deskripsi = mysqli_real_escape_string($conn, $_POST['deskripsi']);
 
@@ -29,8 +30,8 @@ if (mysqli_num_rows($hasil) > 0) {
 } else {
     $getstatus = 1;
     // Insert new product
-    $sql = "INSERT INTO tbl_product (kode, merk, kategori, satuan, hargabeli, diskonbeli, hargapokok, hargajual, diskonjual, stok, foto, deskripsi, visit) 
-            VALUES ('$kode', '$merk', '$kategori', '$satuan', '$hargabeli', '$diskonbeli', '$hargapokok', '$hargajual', '$diskonjual', '$stok', '$foto', '$deskripsi', 0)";
+    $sql = "INSERT INTO tbl_product (kode, merk, kategori, satuan, hargabeli, diskonbeli, hargapokok, hargajual, diskonjual, stok, weight, foto, deskripsi, visit) 
+            VALUES ('$kode', '$merk', '$kategori', '$satuan', '$hargabeli', '$diskonbeli', '$hargapokok', '$hargajual', '$diskonjual', '$stok', '$weight', '$foto', '$deskripsi', 0)";
 
     if (mysqli_query($conn, $sql)) {
         $getresult = 1;

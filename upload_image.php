@@ -3,8 +3,8 @@ include "koneksimysql.php";
 header('content-type: application/json');
 
 // Define both filesystem path and web path
-$FILESYSTEM_PATH = "/www/wwwroot/androidfisco/api-mobile-2/images/";
-$WEB_PATH = "/api-mobile-2/images/"; // Change this to match your actual web path
+$FILESYSTEM_PATH = "/var/www/webserver/images/";
+$WEB_PATH = "/webserver/images/"; // Change this to match your actual web path
 $filename = "user_" . date("YmdHis") . rand(9, 999) . ".jpg";
 
 $res = array();
