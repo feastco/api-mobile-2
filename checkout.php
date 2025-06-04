@@ -5,17 +5,23 @@ include "koneksimysql.php";
 // Menerima data dari POST
 $user_id = isset($_POST['user_id']) ? mysqli_real_escape_string($conn, $_POST['user_id']) : '';
 $shipping_address_id = isset($_POST['shipping_address_id']) ? mysqli_real_escape_string($conn, $_POST['shipping_address_id']) : '';
-$origin_id = isset($_POST['origin_id']) ? mysqli_real_escape_string($conn, $_POST['origin_id']) : ''; 
+$origin_id = isset($_POST['origin_id']) ? mysqli_real_escape_string($conn, $_POST['origin_id']) : '';
 $products = isset($_POST['products']) ? json_decode($_POST['products'], true) : [];
 $courier = isset($_POST['courier']) ? mysqli_real_escape_string($conn, $_POST['courier']) : '';
 $courier_service = isset($_POST['courier_service']) ? mysqli_real_escape_string($conn, $_POST['courier_service']) : '';
 $shipping_cost = isset($_POST['shipping_cost']) ? (float)$_POST['shipping_cost'] : 0;
 $payment_method = isset($_POST['payment_method']) ? mysqli_real_escape_string($conn, $_POST['payment_method']) : '';
+$lama_kirim = isset($_POST['lama_kirim']) ? mysqli_real_escape_string($conn, $_POST['lama_kirim']) : '';
+
+// Debug: Log semua data yang diterima
+error_log("Checkout Data: " . print_r($_POST, true));
 
 // Validasi data
-if (empty($user_id) || empty($shipping_address_id) || empty($origin_id) || 
-    empty($products) || empty($courier) || empty($courier_service) || 
-    empty($shipping_cost) || empty($payment_method)) {
+if (
+    empty($user_id) || empty($shipping_address_id) || empty($origin_id) ||
+    empty($products) || empty($courier) || empty($courier_service) ||
+    empty($shipping_cost) || empty($payment_method)
+) {
     echo json_encode([
         'status' => false,
         'message' => 'Semua data diperlukan untuk proses checkout'
@@ -68,22 +74,34 @@ try {
         $exists = $row['count'] > 0;
     } while ($exists);
 
-    // Set status pesanan menjadi delivered dan pembayaran menjadi paid
-    $payment_status = 'paid';
-    $order_status = 'delivered';
+    // Set status pesanan berdasarkan metode pembayaran
+    if ($payment_method === 'transfer') {
+        $payment_status = 'unpaid';
+        $order_status = 'pending';
+    } else { // COD
+        $payment_status = 'paid';
+        $order_status = 'delivered';
+    }
 
-    // Insert ke tabel orders dengan payment_method
+    // Debug: Log query sebelum insert
     $sql_order = "INSERT INTO orders (order_number, user_id, shipping_address_id, origin_id, total_product_amount, 
-              shipping_cost, grand_total, courier, courier_service, total_weight, order_status, payment_status, payment_method) 
+              shipping_cost, grand_total, courier, courier_service, lama_kirim, total_weight, order_status, payment_status, payment_method) 
               VALUES ('$order_number', $user_id, $shipping_address_id, $origin_id, $total_product_amount, 
-              $shipping_cost, $grand_total, '$courier', '$courier_service', $total_weight, 
+              $shipping_cost, $grand_total, '$courier', '$courier_service', '$lama_kirim', $total_weight, 
               '$order_status', '$payment_status', '$payment_method')";
+
+    error_log("SQL Order Query: " . $sql_order);
 
     if (!mysqli_query($conn, $sql_order)) {
         throw new Exception("Error creating order: " . mysqli_error($conn));
     }
 
     $order_id = mysqli_insert_id($conn);
+    error_log("Order ID created: " . $order_id);
+
+    if (!$order_id) {
+        throw new Exception("Failed to get order ID after insert");
+    }
 
     // Insert ke tabel order_items
     foreach ($products as $product) {
@@ -108,19 +126,23 @@ try {
         $sql_item = "INSERT INTO order_items (order_id, product_code, product_name, quantity, price, subtotal, total_weight) 
             VALUES ($order_id, '$product_code', '$product_name', $quantity, $price, $subtotal, $item_weight)";
 
+        error_log("SQL Item Query: " . $sql_item);
+
         if (!mysqli_query($conn, $sql_item)) {
             throw new Exception("Error adding order item: " . mysqli_error($conn));
         }
 
-        // Update stok produk
+        // Update stok produk - pindahkan ke dalam try block
         $sql_update_stock = "UPDATE tbl_product SET stok = stok - $quantity WHERE kode = '$product_code'";
-        mysqli_query($conn, $sql_update_stock);
+        if (!mysqli_query($conn, $sql_update_stock)) {
+            throw new Exception("Error updating stock: " . mysqli_error($conn));
+        }
     }
 
     // Commit transaksi jika semua operasi berhasil
     mysqli_commit($conn);
 
-    echo json_encode([
+    $response = [
         'status' => true,
         'message' => 'Order berhasil dibuat',
         'order' => [
@@ -132,12 +154,28 @@ try {
             'total_weight' => $total_weight,
             'payment_method' => $payment_method,
             'payment_status' => $payment_status,
-            'order_status' => $order_status
+            'order_status' => $order_status,
+            'lama_kirim' => $lama_kirim
         ]
-    ]);
+    ];
+
+    // Tambahkan info pembayaran untuk transfer
+    if ($payment_method === 'transfer') {
+        $response['payment_info'] = [
+            'bank_name' => 'BCA',
+            'account_number' => '0912256378221',
+            'account_name' => 'Elisha Mart',
+            'amount' => $grand_total,
+            'instructions' => 'Silakan transfer sesuai nominal yang tertera dan upload bukti pembayaran'
+        ];
+    }
+
+    echo json_encode($response);
 } catch (Exception $e) {
     // Rollback transaksi jika terjadi kesalahan
     mysqli_rollback($conn);
+
+    error_log("Checkout Error: " . $e->getMessage());
 
     echo json_encode([
         'status' => false,
