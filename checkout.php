@@ -74,13 +74,16 @@ try {
         $exists = $row['count'] > 0;
     } while ($exists);
 
-    // Set status pesanan berdasarkan metode pembayaran
+    // Tentukan status awal berdasarkan payment method
     if ($payment_method === 'transfer') {
+        $order_status = 'pending';  // Menunggu bukti bayar
+        $payment_status = 'unpaid';    // Belum dibayar
+    } else if ($payment_method === 'cod') {
+        $order_status = 'delivered';   // COD langsung delivered
+        $payment_status = 'paid';      // COD dianggap sudah paid
+    } else {
+        $order_status = 'pending';     // Default
         $payment_status = 'unpaid';
-        $order_status = 'pending';
-    } else { // COD
-        $payment_status = 'paid';
-        $order_status = 'delivered';
     }
 
     // Debug: Log query sebelum insert
@@ -145,7 +148,7 @@ try {
     $response = [
         'status' => true,
         'message' => 'Order berhasil dibuat',
-        'order' => [
+        'data' => [
             'order_id' => $order_id,
             'order_number' => $order_number,
             'total_product_amount' => $total_product_amount,
@@ -155,7 +158,8 @@ try {
             'payment_method' => $payment_method,
             'payment_status' => $payment_status,
             'order_status' => $order_status,
-            'lama_kirim' => $lama_kirim
+            'lama_kirim' => $lama_kirim,
+            'upload_bukti_required' => ($payment_method === 'transfer') // Info apakah perlu upload bukti
         ]
     ];
 
