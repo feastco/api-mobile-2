@@ -100,7 +100,7 @@ if (move_uploaded_file($file['tmp_name'], $filepath)) {
     chmod($filepath, 0644);
 
     // Update database with prepared statement
-    $sql_update = "UPDATE orders SET bukti_bayar = ?, payment_status = 'paid', order_status = 'processing' WHERE id = ?";
+    $sql_update = "UPDATE orders SET bukti_bayar = ?, payment_status = 'paid', order_status = 'delivered' WHERE id = ?";
     $stmt_update = mysqli_prepare($conn, $sql_update);
     mysqli_stmt_bind_param($stmt_update, "si", $filename, $order_id);
 
