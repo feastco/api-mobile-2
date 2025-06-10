@@ -64,19 +64,20 @@ if ($image_info === false) {
     exit;
 }
 
-// Coba buat direktori dengan permission yang tepat
-$upload_dir = 'uploads/bukti_bayar/';
+// Coba buat direktori dengan permission yang tepat - gunakan path absolute
+$upload_dir = __DIR__ . '/uploads/bukti_bayar/';
 
 // Buat direktori bertahap
-if (!is_dir('uploads/')) {
-    if (!mkdir('uploads/', 0777, true)) {
+$uploads_parent = __DIR__ . '/uploads/';
+if (!is_dir($uploads_parent)) {
+    if (!mkdir($uploads_parent, 0755, true)) {
         echo json_encode(['status' => false, 'message' => 'Gagal membuat direktori uploads']);
         exit;
     }
 }
 
 if (!is_dir($upload_dir)) {
-    if (!mkdir($upload_dir, 0777, true)) {
+    if (!mkdir($upload_dir, 0755, true)) {
         echo json_encode(['status' => false, 'message' => 'Gagal membuat direktori bukti_bayar']);
         exit;
     }
@@ -85,6 +86,13 @@ if (!is_dir($upload_dir)) {
 // Generate nama file unik
 $filename = 'bukti_' . $order['order_number'] . '_' . time() . '.' . $file_extension;
 $filepath = $upload_dir . $filename;
+
+// Debug informasi sebelum upload
+error_log("Upload Debug - Temp file: " . $file['tmp_name']);
+error_log("Upload Debug - Target path: " . $filepath);
+error_log("Upload Debug - Directory exists: " . (is_dir($upload_dir) ? 'Yes' : 'No'));
+error_log("Upload Debug - Directory writable: " . (is_writable($upload_dir) ? 'Yes' : 'No'));
+error_log("Upload Debug - Temp file exists: " . (file_exists($file['tmp_name']) ? 'Yes' : 'No'));
 
 // Upload file
 if (move_uploaded_file($file['tmp_name'], $filepath)) {
@@ -105,18 +113,34 @@ if (move_uploaded_file($file['tmp_name'], $filepath)) {
                 'order_number' => $order['order_number'],
                 'bukti_bayar' => $filename,
                 'payment_status' => 'paid',
-                'order_status' => 'delivered',
+                'order_status' => 'processing',
                 'file_url' => 'uploads/bukti_bayar/' . $filename
             ]
         ]);
     } else {
         // Hapus file jika gagal update database
         @unlink($filepath);
+        error_log("Database update failed: " . mysqli_error($conn));
         echo json_encode(['status' => false, 'message' => 'Gagal menyimpan data ke database']);
     }
     mysqli_stmt_close($stmt_update);
 } else {
-    echo json_encode(['status' => false, 'message' => 'Gagal mengupload file']);
+    $upload_error = error_get_last();
+    error_log("Upload failed - Error: " . print_r($upload_error, true));
+    error_log("Upload failed - PHP upload_tmp_dir: " . ini_get('upload_tmp_dir'));
+    error_log("Upload failed - Current working directory: " . getcwd());
+
+    echo json_encode([
+        'status' => false,
+        'message' => 'Gagal mengupload file',
+        'debug' => [
+            'temp_file' => $file['tmp_name'],
+            'target_path' => $filepath,
+            'dir_exists' => is_dir($upload_dir),
+            'dir_writable' => is_writable($upload_dir),
+            'temp_exists' => file_exists($file['tmp_name'])
+        ]
+    ]);
 }
 
 // Tutup koneksi database
