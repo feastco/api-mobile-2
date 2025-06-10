@@ -113,7 +113,7 @@ if (move_uploaded_file($file['tmp_name'], $filepath)) {
                 'order_number' => $order['order_number'],
                 'bukti_bayar' => $filename,
                 'payment_status' => 'paid',
-                'order_status' => 'processing',
+                'order_status' => 'delivered',
                 'file_url' => 'uploads/bukti_bayar/' . $filename
             ]
         ]);
