@@ -1,4 +1,8 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Jangan tampilkan error di output
+ini_set('log_errors', 1);
+
 header('Content-Type: application/json');
 include "koneksimysql.php";
 
@@ -15,9 +19,12 @@ if (!$order_id) {
     exit;
 }
 
-// Validasi order
-$sql = "SELECT * FROM orders WHERE id = $order_id AND payment_method = 'transfer' AND payment_status = 'unpaid'";
-$result = mysqli_query($conn, $sql);
+// Validasi order dengan prepared statement
+$sql = "SELECT * FROM orders WHERE id = ? AND payment_method = 'transfer' AND payment_status = 'unpaid'";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "i", $order_id);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
 
 if (!$result || mysqli_num_rows($result) == 0) {
     echo json_encode(['status' => false, 'message' => 'Order tidak ditemukan atau sudah dibayar']);
@@ -81,14 +88,18 @@ $filepath = $upload_dir . $filename;
 
 // Upload file
 if (move_uploaded_file($file['tmp_name'], $filepath)) {
-    // Update database
-    $filename_escaped = mysqli_real_escape_string($conn, $filename);
-    $sql_update = "UPDATE orders SET bukti_bayar = '$filename_escaped', payment_status = 'paid', order_status = 'delivered' WHERE id = $order_id";
+    // Set file permissions
+    chmod($filepath, 0644);
 
-    if (mysqli_query($conn, $sql_update)) {
+    // Update database with prepared statement
+    $sql_update = "UPDATE orders SET bukti_bayar = ?, payment_status = 'paid', order_status = 'delivered' WHERE id = ?";
+    $stmt_update = mysqli_prepare($conn, $sql_update);
+    mysqli_stmt_bind_param($stmt_update, "si", $filename, $order_id);
+
+    if (mysqli_stmt_execute($stmt_update)) {
         echo json_encode([
             'status' => true,
-            'message' => 'Bukti pembayaran berhasil diupload. Pembayaran telah dikonfirmasi.',
+            'message' => 'Bukti pembayaran berhasil diupload. Pembayaran sedang diproses.',
             'data' => [
                 'order_id' => $order_id,
                 'order_number' => $order['order_number'],
@@ -99,9 +110,15 @@ if (move_uploaded_file($file['tmp_name'], $filepath)) {
             ]
         ]);
     } else {
-        unlink($filepath);
-        echo json_encode(['status' => false, 'message' => 'Gagal menyimpan data ke database: ' . mysqli_error($conn)]);
+        // Hapus file jika gagal update database
+        @unlink($filepath);
+        echo json_encode(['status' => false, 'message' => 'Gagal menyimpan data ke database']);
     }
+    mysqli_stmt_close($stmt_update);
 } else {
     echo json_encode(['status' => false, 'message' => 'Gagal mengupload file']);
 }
+
+// Tutup koneksi database
+mysqli_stmt_close($stmt);
+mysqli_close($conn);
